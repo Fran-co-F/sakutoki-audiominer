@@ -31,7 +31,6 @@ const Buttons = ({inputValue, selectedAudio, setAudioList, selectedChapter} : Bu
         "key": inputValue,
         "chapt": selectedChapter
       };
-      console.log(Data)
       const result = await apiClient.post<string[]>('/api/getaudio/', Data);
       setAudioList(result || [])
     };
@@ -41,7 +40,6 @@ const Buttons = ({inputValue, selectedAudio, setAudioList, selectedChapter} : Bu
         "audiofile": selectedAudio,
         "note_id": "last"
       };
-      console.log(Data)
       const result = await apiClient.post<string[]>('/api/anki/', Data);
       console.log(result)
     };

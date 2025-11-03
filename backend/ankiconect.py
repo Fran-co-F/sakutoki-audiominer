@@ -61,7 +61,7 @@ def addaudio(audiopath):
         #exit()
     except Exception as e:
         print(f"Error reading file: {e}")
-        raise(Exception)
+        raise(e)
         #exit()
 
     base64_encoded_content = base64.b64encode(file_content).decode('utf-8')
@@ -98,7 +98,7 @@ def addaudio_id(audiopath, note_id):
         #exit()
     except Exception as e:
         print(f"Error reading file: {e}")
-        raise(Exception)
+        raise(e)
         #exit()
 
     base64_encoded_content = base64.b64encode(file_content).decode('utf-8')
