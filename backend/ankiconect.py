@@ -1,121 +1,80 @@
 import json
 import urllib.request
-import shutil
 import os
 import base64
-
-ANKI_MEDIAFOLDER = "C:\\Users\\Franco\\AppData\\Roaming\\Anki2\\User 1\\collection.media"
 
 def request(action, **params):
     return {'action': action, 'params': params, 'version': 6}
 
 def invoke(action, **params):
     requestJson = json.dumps(request(action, **params)).encode('utf-8')
-    print(requestJson)
-    response = json.load(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8765', requestJson)))
+    # AnkiConnect usa 127.0.0.1:8765 por defecto en Linux y Windows
+    try:
+        response = json.load(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8765', requestJson)))
+    except Exception as e:
+        raise Exception(f"No se pudo conectar con Anki. ¿Está abierto? Error: {e}")
+
     if len(response) != 2:
+        print("ex1")
         raise Exception('response has an unexpected number of fields')
     if 'error' not in response:
+        print("ex2")
         raise Exception('response is missing required error field')
     if 'result' not in response:
+        print("ex3")
         raise Exception('response is missing required result field')
     if response['error'] is not None:
+        print("ex4")
         raise Exception(response['error'])
     return response['result']
 
 def newestcrd():
-    '''
-    Searches for the newest card in all decks
-    '''
-
-    todaycards = invoke("findCards", query = "added:2")
-    result = invoke("cardsModTime", cards = todaycards)
+    # Buscamos notas añadidas hoy (added:1) o recientemente
+    todaycards = invoke("findCards", query="added:1")
+    if not todaycards:
+        # Si no hay hoy, podrías ampliar el rango o manejar el error
+        return None
+    
+    result = invoke("cardsModTime", cards=todaycards)
     newestcard = result[0]
     for card in result:
         if card["mod"] > newestcard["mod"]:
             newestcard = card
-    return newestcard["cardId"]
-
-def formatforanki(audiopath):
-    '''
-    Fromats the audio filename for anki reproduction
-    [sound:<audiofilename>]
-    '''
-
-    name = audiopath.split('/')[-1]
-    return "[sound:" + name + "]"
-
-def addaudio(audiopath):
-    '''
-    Takes the audiofile and copies it to your anki media folder, then adds the reference to the corresponding last added note
-    '''
-
-    filename = os.path.basename(audiopath)
-
-    try:
-        with open(audiopath, "rb") as f: # "rb" for read binary
-            file_content = f.read()
-    except FileNotFoundError:
-        print(f"Error: File not found at {audiopath}")
-        raise(FileNotFoundError)
-        #exit()
-    except Exception as e:
-        print(f"Error reading file: {e}")
-        raise(e)
-        #exit()
-
-    base64_encoded_content = base64.b64encode(file_content).decode('utf-8')
-
-    result_store = invoke("storeMediaFile",
-        filename = filename,
-        data = base64_encoded_content
-    )
-    print(result_store)
-     
-    note_id = int(newestcrd())
-    anki_audio = formatforanki(audiopath)
-
-    result = invoke("updateNoteFields", note={
-        "id": note_id,
-        "fields": {
-            "Audio2": anki_audio,
-        }
-    })
-
-def addaudio_id(audiopath, note_id):
-    '''
-    Takes the audiofile and copies it to your anki media folder, then adds the reference to the corresponding note by id
-    '''
-
-    filename = os.path.basename(audiopath)
-
-    try:
-        with open(audiopath, "rb") as f: # "rb" for read binary
-            file_content = f.read()
-    except FileNotFoundError:
-        print(f"Error: File not found at {audiopath}")
-        raise(FileNotFoundError)
-        #exit()
-    except Exception as e:
-        print(f"Error reading file: {e}")
-        raise(e)
-        #exit()
-
-    base64_encoded_content = base64.b64encode(file_content).decode('utf-8')
-
-    result_store = invoke("storeMediaFile",
-        filename = filename,
-        data = base64_encoded_content
-    )
     
-    print(result_store)
-    anki_audio = formatforanki(audiopath)
+    # Obtenemos el noteId (ID de la nota), no el cardId
+    # updateNoteFields requiere el ID de la NOTA.
+    card_info = invoke("cardsInfo", cards=[newestcard["cardId"]])
+    return card_info[0]["note"]
 
-    print(note_id)
-    result_mod = invoke("updateNoteFields", note={
-        "id": int(note_id),
+def addaudio_generic(audiopath, note_id=None):
+    '''
+    Versión unificada que funciona en Linux/Windows.
+    Si note_id es None, busca la última nota.
+    '''
+    if not os.path.exists(audiopath):
+        raise FileNotFoundError(f"No existe el audio en: {audiopath}")
+
+    filename = os.path.basename(audiopath)
+
+    # Lectura binaria para base64
+    with open(audiopath, "rb") as f:
+        base64_content = base64.b64encode(f.read()).decode('utf-8')
+
+    # 1. Almacenar el archivo en Anki (AnkiConnect lo pone en la carpeta correcta)
+    invoke("storeMediaFile", filename=filename, data=base64_content)
+    
+    # 2. Identificar la nota
+    final_note_id = note_id if note_id else newestcrd()
+    
+    if not final_note_id:
+        raise Exception("No se encontró una nota reciente para actualizar.")
+
+    # 3. Actualizar el campo
+    anki_audio_tag = f"[sound:{filename}]"
+
+    return invoke("updateNoteFields", note={
+        "id": int(final_note_id),
         "fields": {
-            "Audio2": anki_audio,
+            "Audio2": anki_audio_tag,
         }
     })
-    print(note_id)

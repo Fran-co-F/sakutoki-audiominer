@@ -1,5 +1,5 @@
-backend/script/
-backend/sound/
+backend/assets/
+backend/build/
 
 # Logs
 logs
