@@ -1,6 +1,9 @@
-backend/assets/
+backend/settings.json
 backend/build/
-
+backend/__pycache__/
+sound/
+script/
+env/
 # Logs
 logs
 *.log
