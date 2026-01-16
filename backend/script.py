@@ -5,6 +5,7 @@ import json
 from just_playback import Playback
 from os import listdir
 from os.path import join
+from rapidfuzz import process, fuzz
 
 playback = Playback()
 
@@ -107,6 +108,73 @@ def main(page: ft.Page):
 
     lines_dict = {}
 
+    def search_clicked(e):
+        key = (txt_input.value, chapt_dropdown.value)
+        results = lines_dict.get(key, [])
+        results = [r for r in results if r != "NoVo"]
+        audio_dropdown.options = [ft.dropdown.Option(a) for a in results]
+        if results:
+            audio_dropdown.value = results[0]
+            #play_audio(e)
+        else:
+            show_msg("No se encontraron audios", ft.Colors.RED_400)
+            playback = Playback()
+            audio_dropdown.value = ""
+        page.update()
+
+# --- BÚSQUEDA DIFUSA ---
+
+    def on_search_change(e):
+        termino = txt_input.value.strip().lower()
+        search_results_container.controls.clear()
+        
+        if len(termino) > 2: # tras 3 caracteres
+            choices = [key[0] for key in lines_dict.keys()]
+            
+            # 10 mejores coincidencias
+            matches = process.extract(
+                termino, 
+                choices, 
+                scorer=fuzz.WRatio, 
+                limit=10
+            )
+
+            for text_match, score, index in matches:
+                if score > 50:
+                    search_results_container.controls.append(
+                        ft.ListTile(
+                            title=ft.Text(text_match, size=14, max_lines=1),
+                            subtitle=ft.Text(f"Similitud: {int(score)}%", size=11),
+                            on_click=lambda _, t=text_match: select_suggestion(t)
+                        )
+                    )
+        
+        search_results_container.visible = len(search_results_container.controls) > 0
+        page.update()
+
+    def select_suggestion(selected_text):
+        txt_input.value = selected_text
+        search_results_container.visible = False
+        search_results_container.controls.clear()
+        # Se dispara la búsqueda de audios automáticamente
+        search_clicked(None) 
+        page.update()
+
+    # --- UI COMPONENTS ACTUALIZADOS ---
+    txt_input = ft.TextField(
+        label="Escribe para buscar frase...", 
+        expand=True,
+        on_change=on_search_change,
+        on_submit=search_clicked
+    )
+
+    search_results_container = ft.Column(
+        visible=False,
+        scroll=ft.ScrollMode.AUTO,
+        height=200,
+        spacing=0
+    )
+
     def on_apply_savesettings():
         if voice_path_field:
             settings["voice_path"] = voice_path_field.value
@@ -166,21 +234,6 @@ def main(page: ft.Page):
 
     def show_msg(text, color=ft.Colors.BLUE_400):
         page.show_dialog(ft.SnackBar(ft.Text(text), bgcolor=color))
-
-    def search_clicked(e):
-        key = (txt_input.value, chapt_dropdown.value)
-        results = lines_dict.get(key, [])
-        results = [r for r in results if r != "NoVo"]
-        audio_dropdown.options = [ft.dropdown.Option(a) for a in results]
-        if results:
-            audio_dropdown.value = results[0]
-            play_audio(e)
-        else:
-            show_msg("No se encontraron audios", ft.Colors.RED_400)
-            playback = Playback()
-            audio_dropdown.value = ""
-        page.update()
-        
 
     def play_audio(e):
         if audio_dropdown.value:
@@ -249,8 +302,8 @@ def main(page: ft.Page):
             page.show_dialog(error_dialog)
         else:
             nuevos_datos = getfiles(settings["script_path"])
-            lines_dict.clear()         # Vaciamos el diccionario global
-            lines_dict.update(nuevos_datos) # Le metemos los datos nuevos
+            lines_dict.clear() 
+            lines_dict.update(nuevos_datos)
 
     def show_popup():
         if not audio_dropdown.value:
@@ -274,36 +327,39 @@ def main(page: ft.Page):
     # Layout
     page.add(
         ft.Container(
-            padding=30,
+            padding=20,
             bgcolor="#2d3748",
             border_radius=10,
             content=ft.Column([
-                ft.Text("Anki Audio Inserter", size=20, weight="bold"),
-                txt_input,
                 ft.Row([
+                    ft.Text("Anki Audio Miner", size=20, weight="bold"),
+                    ft.IconButton(ft.Icons.SETTINGS, on_click=lambda e: page.show_dialog(settings_dialog))
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                
+                ft.Column([
+                    txt_input,
+                    ft.Container(
+                        content=search_results_container,
+                        bgcolor="#1a202c",
+                        border_radius=5,
+                        padding=5 if search_results_container.visible else 0
+                    )
+                ], spacing=0),
+
+                ft.Row([
+                    ft.Text("Cap:", size=12),
                     chapt_dropdown, 
                     audio_dropdown, 
-                    ft.IconButton(ft.Icons.REFRESH, on_click=playback.play)
+                    ft.IconButton(ft.Icons.PLAY_ARROW, on_click=play_audio)
                 ]),
+                
                 ft.Row([
                     ft.FilledButton(
-                        "Buscar", 
-                        on_click=search_clicked, 
-                        style=ft.ButtonStyle(bgcolor="#5a82a6", shape=ft.RoundedRectangleBorder(radius=5))
-                    ),
-                    ft.FilledButton(
-                        "Añadir Última", 
-                        on_click=lambda e: add_to_anki(e, ""), 
-                        style=ft.ButtonStyle(bgcolor="#5a82a6", shape=ft.RoundedRectangleBorder(radius=5))
-                    ),
-                    ft.FilledButton(
-                        "Por ID", 
-                        on_click=show_popup, # Abre el popup
-                        style=ft.ButtonStyle(bgcolor="#5a82a6", shape=ft.RoundedRectangleBorder(radius=5))
-                    ),
+                        "Buscar", on_click=search_clicked, expand=True),
+                    ft.FilledButton("Añadir Última", on_click=lambda e: add_to_anki(e, ""), expand=True),
+                    ft.FilledButton("Por ID", on_click=show_popup, expand=True),
                 ], alignment=ft.MainAxisAlignment.CENTER),
-                ft.Row([ft.IconButton(ft.Icons.SETTINGS, on_click=lambda e: page.show_dialog(settings_dialog))], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
         )
     )
 

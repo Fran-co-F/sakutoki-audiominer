@@ -1,3 +1,4 @@
 flet
 just_playback
 requests
+rapidfuzz
