@@ -13,9 +13,9 @@ Audio extraction and preview tool for Sakutoki dialogue files with AnkiConnect i
 
 The following dependencies are required:
 
-\`\`\`bash
+```bash
 pip install flet rapidfuzz just_playback requests
-\`\`\`
+```
 
 Linux users may require \`libasound2-dev\` or distribution-specific GStreamer payloads for audio playback.
 
@@ -23,9 +23,9 @@ Linux users may require \`libasound2-dev\` or distribution-specific GStreamer pa
 
 To generate a standalone binary on Linux:
 
-\`\`\`bash
+```bash
 flet build linux --module-name script.py --project sakutoki-audiominer
-\`\`\`
+```
 
 The executable is generated in the \`build/linux\` directory.
 
