@@ -17,7 +17,7 @@ The following dependencies are required:
 pip install flet rapidfuzz just_playback requests
 ```
 
-Linux users may require \`libasound2-dev\` or distribution-specific GStreamer payloads for audio playback.
+Linux users may require \`libasound2-dev\` or distribution-specific GStreamer payloads for audio playback also zenity and xdg-desktop-portal for folder selection.
 
 ## Build Instructions
 
